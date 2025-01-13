@@ -5,7 +5,8 @@ import plotly.graph_objects as go
 
 def download_data(ticker, start_date, end_date):
     try:
-        data = yf.download(ticker, start=start_date, end=end_date, group_by='ticker')
+        # Espere que o Index seja plano quando group_by não está especificado
+        data = yf.download(ticker, start=start_date, end=end_date)
         if data.empty:
             st.warning(f"Nenhum dado foi retornado para o ticker {ticker}.")
         return data
@@ -14,22 +15,16 @@ def download_data(ticker, start_date, end_date):
         return pd.DataFrame()
 
 def check_data_columns(data):
-    # Conversão explícita de todas as entradas da lista para strings na presença de MultiIndex
+    # No caso de MultiIndex, reporta o nível correto e evita o `TypeError`
     if isinstance(data.columns, pd.MultiIndex):
-        column_list = [str(col) for col in data.columns.get_level_values(0)]
+        column_list = [str(col[0]) for col in data.columns]
     else:
         column_list = list(data.columns)
     st.write(f"Colunas disponíveis: {', '.join(column_list)}")
 
 def transform_data(data):
     try:
-        if isinstance(data.columns, pd.MultiIndex):
-            # Se for MultiIndex, use o nível zero para agregação
-            ticker_data = data.xs(data.columns[0][1], axis=1, level=1)
-        else:
-            ticker_data = data
-
-        monthly_data = ticker_data.resample('M').agg({
+        monthly_data = data.resample('M').agg({
             'Open': 'first', 
             'High': 'max', 
             'Low': 'min', 
@@ -84,9 +79,7 @@ def main():
         
         if not data.empty:
             check_data_columns(data)
-            # Adaptação para casos de MultiIndex e índices simples
-            level_check = (data.columns.get_level_values(0) if isinstance(data.columns, pd.MultiIndex) else data.columns)
-            if {'Open', 'High', 'Low', 'Close'}.issubset(level_check):
+            if {'Open', 'High', 'Low', 'Close'}.issubset(data.columns):
                 monthly_data = transform_data(data)
                 if monthly_data is not None and not monthly_data.empty:
                     display_data_in_streamlit(ticker, start_date, end_date, monthly_data)
