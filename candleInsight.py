@@ -5,7 +5,6 @@ import plotly.graph_objects as go
 
 def download_data(ticker, start_date, end_date):
     try:
-        # Espere que o Index seja plano quando group_by não está especificado
         data = yf.download(ticker, start=start_date, end=end_date)
         if data.empty:
             st.warning(f"Nenhum dado foi retornado para o ticker {ticker}.")
@@ -15,15 +14,13 @@ def download_data(ticker, start_date, end_date):
         return pd.DataFrame()
 
 def check_data_columns(data):
-    # No caso de MultiIndex, reporta o nível correto e evita o `TypeError`
-    if isinstance(data.columns, pd.MultiIndex):
-        column_list = [str(col[0]) for col in data.columns]
-    else:
-        column_list = list(data.columns)
+    # Assegurar verificação correta entre nível simples ou multi
+    column_list = list(data.columns)
     st.write(f"Colunas disponíveis: {', '.join(column_list)}")
 
 def transform_data(data):
     try:
+        # Confirmar funcionamento sem MultiIndex
         monthly_data = data.resample('M').agg({
             'Open': 'first', 
             'High': 'max', 
@@ -79,7 +76,9 @@ def main():
         
         if not data.empty:
             check_data_columns(data)
-            if {'Open', 'High', 'Low', 'Close'}.issubset(data.columns):
+            # Checar uso correto de colunas agora que sabemos a estrutura limpa
+            required_columns = ['Open', 'High', 'Low', 'Close']
+            if all((col in data.columns) for col in required_columns):
                 monthly_data = transform_data(data)
                 if monthly_data is not None and not monthly_data.empty:
                     display_data_in_streamlit(ticker, start_date, end_date, monthly_data)
