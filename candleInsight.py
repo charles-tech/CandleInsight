@@ -14,13 +14,19 @@ def download_data(ticker, start_date, end_date):
         return pd.DataFrame()
 
 def check_data_columns(data):
-    # Cast all entries to string first to ensure no TypeError
     column_list = [str(col) for col in data.columns]
     st.write(f"Colunas disponíveis: {', '.join(column_list)}")
 
 def transform_data(data):
     try:
-        monthly_data = data.resample('M').agg({
+        # Se MultiIndex, obter primeiro nível de dados
+        if isinstance(data.columns, pd.MultiIndex):
+            data = data[data.columns.get_level_values(0)]  # Seleciona o primeiro nível de cada coluna
+        
+        cols_to_resample = ['Open', 'High', 'Low', 'Close']
+        
+        # Aplicar a operação de câmbio de amostra
+        monthly_data = data[cols_to_resample].resample('M').agg({
             'Open': 'first', 
             'High': 'max', 
             'Low': 'min', 
@@ -75,6 +81,7 @@ def main():
         
         if not data.empty:
             check_data_columns(data)
+            
             required_columns = ['Open', 'High', 'Low', 'Close']
             if all((col in data.columns) for col in required_columns):
                 monthly_data = transform_data(data)
