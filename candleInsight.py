@@ -14,13 +14,12 @@ def download_data(ticker, start_date, end_date):
         return pd.DataFrame()
 
 def check_data_columns(data):
-    # Assegurar verificação correta entre nível simples ou multi
-    column_list = list(data.columns)
+    # Cast all entries to string first to ensure no TypeError
+    column_list = [str(col) for col in data.columns]
     st.write(f"Colunas disponíveis: {', '.join(column_list)}")
 
 def transform_data(data):
     try:
-        # Confirmar funcionamento sem MultiIndex
         monthly_data = data.resample('M').agg({
             'Open': 'first', 
             'High': 'max', 
@@ -76,7 +75,6 @@ def main():
         
         if not data.empty:
             check_data_columns(data)
-            # Checar uso correto de colunas agora que sabemos a estrutura limpa
             required_columns = ['Open', 'High', 'Low', 'Close']
             if all((col in data.columns) for col in required_columns):
                 monthly_data = transform_data(data)
