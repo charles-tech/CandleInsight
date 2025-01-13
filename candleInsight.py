@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 
 def download_data(ticker, start_date, end_date):
     try:
-        data = yf.download(ticker, start=start_date, end=end_date)
+        data = yf.download(ticker, start=start_date, end=end_date, group_by='ticker')
         if data.empty:
             st.warning(f"Nenhum dado foi retornado para o ticker {ticker}.")
         return data
@@ -14,16 +14,20 @@ def download_data(ticker, start_date, end_date):
         return pd.DataFrame()
 
 def check_data_columns(data):
-    # Conversão explícita de todas as entradas da lista para strings
+    # Verificação para evitar `TypeError` com MultiIndex
     column_list = [str(col) for col in data.columns]
     st.write(f"Colunas disponíveis: {', '.join(column_list)}")
 
-def transform_data(data):
+def transform_data(data, ticker):
     try:
-        monthly_data = data.resample('M').agg({'Open': 'first', 
-                                               'High': 'max', 
-                                               'Low': 'min', 
-                                               'Close': 'last'})
+        # Seleção das colunas importantes dentro do MultiIndex
+        ticker_data = data.xs(ticker, axis=1, level=1)
+        monthly_data = ticker_data.resample('M').agg({
+            'Open': 'first', 
+            'High': 'max', 
+            'Low': 'min', 
+            'Close': 'last'
+        })
         return monthly_data
     except KeyError as ke:
         st.error(f"Erro ao realizar agregação dos dados. Erro: {ke}")
@@ -72,15 +76,15 @@ def main():
         data = download_data(ticker, start_date, end_date)
         
         if not data.empty:
-            if {'Open', 'High', 'Low', 'Close'}.issubset(data.columns):
-                monthly_data = transform_data(data)
-                if monthly_data is not None:
+            check_data_columns(data)
+            if {'Open', 'High', 'Low', 'Close'}.issubset(data.xs(ticker, axis=1, level=1).columns):
+                monthly_data = transform_data(data, ticker)
+                if monthly_data is not None and not monthly_data.empty:
                     display_data_in_streamlit(ticker, start_date, end_date, monthly_data)
                 else:
-                    st.write("Erro na transformação dos dados.")
+                    st.write("Erro na transformação dos dados ou dados estão vazios.")
             else:
                 st.write("Um ou mais campos de dados estão faltando. Confira a integridade dos dados.")
-                check_data_columns(data)
         else:
             st.write("Não foi possível recuperar dados para o ticker especificado.")
 
