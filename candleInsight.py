@@ -14,7 +14,8 @@ def download_data(ticker, start_date, end_date):
         return pd.DataFrame()
 
 def check_data_columns(data):
-    st.write(f"Colunas disponíveis: {', '.join(data.columns)}")
+    column_list = list(data.columns)
+    st.write(f"Colunas disponíveis: {', '.join(column_list)}")
 
 def transform_data(data):
     try:
