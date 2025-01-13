@@ -14,14 +14,21 @@ def download_data(ticker, start_date, end_date):
         return pd.DataFrame()
 
 def check_data_columns(data):
-    # Verificação para evitar `TypeError` com MultiIndex
-    column_list = [str(col) for col in data.columns]
+    # Conversão explícita de todas as entradas da lista para strings na presença de MultiIndex
+    if isinstance(data.columns, pd.MultiIndex):
+        column_list = [str(col) for col in data.columns.get_level_values(0)]
+    else:
+        column_list = list(data.columns)
     st.write(f"Colunas disponíveis: {', '.join(column_list)}")
 
-def transform_data(data, ticker):
+def transform_data(data):
     try:
-        # Seleção das colunas importantes dentro do MultiIndex
-        ticker_data = data.xs(ticker, axis=1, level=1)
+        if isinstance(data.columns, pd.MultiIndex):
+            # Se for MultiIndex, use o nível zero para agregação
+            ticker_data = data.xs(data.columns[0][1], axis=1, level=1)
+        else:
+            ticker_data = data
+
         monthly_data = ticker_data.resample('M').agg({
             'Open': 'first', 
             'High': 'max', 
@@ -77,8 +84,10 @@ def main():
         
         if not data.empty:
             check_data_columns(data)
-            if {'Open', 'High', 'Low', 'Close'}.issubset(data.xs(ticker, axis=1, level=1).columns):
-                monthly_data = transform_data(data, ticker)
+            # Adaptação para casos de MultiIndex e índices simples
+            level_check = (data.columns.get_level_values(0) if isinstance(data.columns, pd.MultiIndex) else data.columns)
+            if {'Open', 'High', 'Low', 'Close'}.issubset(level_check):
+                monthly_data = transform_data(data)
                 if monthly_data is not None and not monthly_data.empty:
                     display_data_in_streamlit(ticker, start_date, end_date, monthly_data)
                 else:
